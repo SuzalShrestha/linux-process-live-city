@@ -8,6 +8,7 @@ async function request(path, options = {}) {
   const res = await fetch(path, { ...options, headers, cache: 'no-store' });
   let body = null;
   try { body = await res.json(); } catch { /* non-JSON error */ }
+  if (res.ok && body === null) throw new Error(`${path} returned invalid JSON (HTTP ${res.status})`);
   if (!res.ok) {
     const err = new Error((body && body.error) || `HTTP ${res.status}`);
     err.status = res.status;

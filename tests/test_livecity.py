@@ -146,6 +146,11 @@ class ServerTests(unittest.TestCase):
         status, _ = self.request("GET", f"/api/process/{2 ** 22 + 12345}")
         self.assertEqual(status, 404)
 
+    def test_non_finite_numbers_become_null(self):
+        from livecity.server import _finite
+        self.assertEqual(_finite({"a": float("nan"), "b": [1.5, float("inf")], "c": "x"}),
+                         {"a": None, "b": [1.5, None], "c": "x"})
+
     def test_path_traversal_blocked(self):
         for path in ("/../server.py", "/%2e%2e/server.py", "/css/../../server.py"):
             status, _ = self.request("GET", path)
@@ -164,6 +169,28 @@ class ServerTests(unittest.TestCase):
         )
         self.assertEqual(status, 403)
         self.assertIn(b"--allow-signals", body)
+
+
+class RepositoryTests(unittest.TestCase):
+    def test_frontend_files_are_not_gitignored(self):
+        # A stray ignore rule once dropped the vendored three.js build from
+        # the repo: it worked locally but 404'd on every fresh clone.
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        try:
+            out = subprocess.run(
+                ["git", "ls-files", "--others", "--ignored", "--exclude-standard", "livecity/web"],
+                cwd=root, capture_output=True, text=True, check=True,
+            ).stdout
+        except (OSError, subprocess.CalledProcessError):
+            self.skipTest("not a git checkout")
+        self.assertEqual(out.strip(), "", "frontend files ignored by git:\n" + out)
+
+    def test_import_map_targets_exist(self):
+        import re
+        web = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "livecity", "web")
+        html = open(os.path.join(web, "index.html")).read()
+        for target in re.findall(r'"three(?:/addons/)?":\s*"\./([^"]+)"', html):
+            self.assertTrue(os.path.exists(os.path.join(web, target)), target)
 
 
 class TokenTests(unittest.TestCase):

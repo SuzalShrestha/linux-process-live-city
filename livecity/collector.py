@@ -92,6 +92,7 @@ class Collector:
         self.interval = max(0.25, float(interval))
         self._lock = threading.Lock()
         self._procs: dict[int, psutil.Process] = {}
+        self._warned: set[int] = set()
         self._io_prev: dict[int, tuple[float, int, int]] = {}
         self._history: dict[int, collections.deque] = {}
         self._sys_history: collections.deque = collections.deque(maxlen=HISTORY_LEN)
@@ -184,6 +185,11 @@ class Collector:
                 alive.add(pid)
                 rows.append(self._zombie_row(pid))
             except (psutil.NoSuchProcess, psutil.AccessDenied, ProcessLookupError):
+                continue
+            except Exception as exc:  # platform quirks (e.g. raw OSError on macOS)
+                if pid not in self._warned:
+                    self._warned.add(pid)
+                    print(f"[livecity] skipping pid {pid}: {exc!r}", file=sys.stderr)
                 continue
 
         for table in (self._procs, self._io_prev, self._history):

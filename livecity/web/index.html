@@ -120,6 +120,38 @@
     <div id="bootMsg">Surveying the city…</div>
   </div>
 
-  <script type="module" src="js/main.js"></script>
+  <script>
+    // Plain (non-module) script so it still runs when the app itself fails to load.
+    (function () {
+      var msg = document.getElementById('bootMsg');
+      function fail(text) {
+        if (document.body.classList.contains('ready')) return;
+        if (msg.classList.contains('boot-error')) {  // keep the first (usually clearest) cause
+          msg.querySelector('code').textContent += '\n\n' + text;
+          return;
+        }
+        msg.innerHTML = '<b>Process City could not start</b><br><code></code>'
+          + '<br><small>Details are also in the browser console (Chrome: \u2325\u2318J, Safari: \u2325\u2318C).</small>';
+        msg.querySelector('code').textContent = text;
+        msg.classList.add('boot-error');
+      }
+      window.__bootFail = fail;
+      window.addEventListener('error', function (e) { fail(e.message || String(e.error || e)); });
+      window.addEventListener('unhandledrejection', function (e) {
+        fail((e.reason && (e.reason.stack || e.reason.message)) || String(e.reason));
+      });
+      if (!(HTMLScriptElement.supports && HTMLScriptElement.supports('importmap'))) {
+        fail('This browser does not support import maps. Use a current Chrome, Firefox, Edge or Safari 16.4+.');
+      }
+      var gl = document.createElement('canvas').getContext('webgl2');
+      if (!gl) fail('WebGL 2 is not available. Enable hardware acceleration in your browser settings (Chrome: Settings \u2192 System).');
+      setTimeout(function () {
+        if (!document.body.classList.contains('ready') && !msg.classList.contains('boot-error')) {
+          msg.textContent = 'Still waiting for the first process snapshot\u2026 is the server still running in your terminal?';
+        }
+      }, 10000);
+    })();
+  </script>
+  <script type="module" src="js/main.js" onerror="window.__bootFail && window.__bootFail('Failed to load js/main.js')"></script>
 </body>
 </html>

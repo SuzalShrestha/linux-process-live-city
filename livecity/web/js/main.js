@@ -283,7 +283,11 @@ async function poll() {
   } catch (err) {
     failures++;
     $('#live').classList.add('lost');
-    if (failures === 1) toast(`Lost connection to the Process City server (${err.message}) — retrying…`, true);
+    if (!document.body.classList.contains('ready')) {
+      window.__bootFail?.(`Could not load process data: ${err.message}\n${err.stack || ''}`);
+    } else if (failures === 1) {
+      toast(`Lost connection to the Process City server (${err.message}) — retrying…`, true);
+    }
     if (err.status === 401) $('#bootMsg').textContent = 'Unauthorized: open the URL printed by the server (it includes a ?token=).';
   }
   setTimeout(poll, Math.max(400, interval * 1000));

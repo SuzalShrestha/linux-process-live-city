@@ -308,6 +308,10 @@ table.grid .w-num { width: 78px; }
 #boot .boot-logo i:nth-child(3) { height: 42px; animation-delay: .4s; }
 @keyframes rise { from { transform: scaleY(.3); } }
 body.ready #boot { opacity: 0; pointer-events: none; }
+#bootMsg { max-width: min(640px, 90vw); text-align: center; letter-spacing: normal; }
+#bootMsg.boot-error { color: #ffc1c9; }
+#bootMsg.boot-error code { display: block; margin: 10px 0; padding: 10px 12px; border-radius: 8px; background: rgba(255, 90, 110, .08); border: 1px solid rgba(255, 90, 110, .35); color: #ffd9de; white-space: pre-wrap; text-align: left; font-size: 12px; }
+#bootMsg.boot-error small { color: var(--muted); }
 
 @media (max-width: 1100px) {
   :root { --inspector-w: 400px; }
