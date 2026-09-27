@@ -171,6 +171,28 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"--allow-signals", body)
 
 
+class RepositoryTests(unittest.TestCase):
+    def test_frontend_files_are_not_gitignored(self):
+        # A stray ignore rule once dropped the vendored three.js build from
+        # the repo: it worked locally but 404'd on every fresh clone.
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        try:
+            out = subprocess.run(
+                ["git", "ls-files", "--others", "--ignored", "--exclude-standard", "livecity/web"],
+                cwd=root, capture_output=True, text=True, check=True,
+            ).stdout
+        except (OSError, subprocess.CalledProcessError):
+            self.skipTest("not a git checkout")
+        self.assertEqual(out.strip(), "", "frontend files ignored by git:\n" + out)
+
+    def test_import_map_targets_exist(self):
+        import re
+        web = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "livecity", "web")
+        html = open(os.path.join(web, "index.html")).read()
+        for target in re.findall(r'"three(?:/addons/)?":\s*"\./([^"]+)"', html):
+            self.assertTrue(os.path.exists(os.path.join(web, target)), target)
+
+
 class TokenTests(unittest.TestCase):
     def test_token_required_when_requested(self):
         collector = Collector()
