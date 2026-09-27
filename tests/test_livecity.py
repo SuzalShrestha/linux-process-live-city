@@ -146,6 +146,11 @@ class ServerTests(unittest.TestCase):
         status, _ = self.request("GET", f"/api/process/{2 ** 22 + 12345}")
         self.assertEqual(status, 404)
 
+    def test_non_finite_numbers_become_null(self):
+        from livecity.server import _finite
+        self.assertEqual(_finite({"a": float("nan"), "b": [1.5, float("inf")], "c": "x"}),
+                         {"a": None, "b": [1.5, None], "c": "x"})
+
     def test_path_traversal_blocked(self):
         for path in ("/../server.py", "/%2e%2e/server.py", "/css/../../server.py"):
             status, _ = self.request("GET", path)

@@ -5,6 +5,7 @@ from __future__ import annotations
 import hmac
 import ipaddress
 import json
+import math
 import mimetypes
 import os
 import re
@@ -42,6 +43,17 @@ class Config:
         self.check_host = check_host
 
 
+def _finite(obj):
+    """Replace NaN/Infinity (which JSON can't represent) with None."""
+    if isinstance(obj, float):
+        return obj if math.isfinite(obj) else None
+    if isinstance(obj, dict):
+        return {k: _finite(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_finite(v) for v in obj]
+    return obj
+
+
 def make_handler(cfg: Config):
     class Handler(BaseHTTPRequestHandler):
         server_version = "ProcessCity/1.0"
@@ -63,8 +75,11 @@ def make_handler(cfg: Config):
                 self.wfile.write(body)
 
         def _json(self, code, obj):
-            body = json.dumps(obj, separators=(",", ":"), default=str).encode()
-            self._send(code, body, "application/json")
+            try:
+                text = json.dumps(obj, separators=(",", ":"), default=str, allow_nan=False)
+            except ValueError:  # NaN/Infinity somewhere: not valid JSON for browsers
+                text = json.dumps(_finite(obj), separators=(",", ":"), default=str)
+            self._send(code, text.encode(), "application/json")
 
         def _host_ok(self) -> bool:
             # Guards against DNS rebinding: a remote page resolving its own
