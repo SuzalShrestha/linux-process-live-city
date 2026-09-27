@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "process-city"
+version = "1.0.0"
+description = "Watch your running processes as a living 3D neon city (Linux & macOS)."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = ["psutil>=5.9"]
+classifiers = [
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: MacOS",
+  "Environment :: Web Environment",
+  "Topic :: System :: Monitoring",
+]
+
+[project.scripts]
+process-city = "livecity.__main__:main"
+
+[tool.setuptools]
+packages = ["livecity"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+livecity = ["web/**/*", "web/*"]
