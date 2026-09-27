@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import os
+import shutil
+import subprocess
 import sys
 import threading
 import webbrowser
@@ -10,6 +13,32 @@ import webbrowser
 from . import __version__
 from .collector import Collector
 from .server import is_loopback, serve
+
+
+def open_browser(url: str) -> bool:
+    """Open ``url`` in the user's browser, even when we were started via sudo.
+
+    Under sudo the process runs as root, which on macOS (and on most Linux
+    desktops) can't open windows in the logged-in user's session, so
+    ``webbrowser.open`` silently does nothing. Hand the job back to the
+    user who invoked sudo instead.
+    """
+    sudo_user = os.environ.get("SUDO_USER")
+    if hasattr(os, "geteuid") and os.geteuid() == 0 and sudo_user and sudo_user != "root":
+        opener = "open" if sys.platform == "darwin" else shutil.which("xdg-open")
+        if opener:
+            try:
+                subprocess.Popen(
+                    ["sudo", "-u", sudo_user, opener, url],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                )
+                return True
+            except OSError:
+                pass
+    try:
+        return webbrowser.open(url)
+    except Exception:
+        return False
 
 
 def main(argv=None):
@@ -42,12 +71,14 @@ def main(argv=None):
         url += f"?token={token}"
         print("WARNING: listening on a non-loopback address. Process details include "
               "environment variables, which often contain secrets.", file=sys.stderr)
-    print(f"Process City {__version__} running at {url}")
+    print(f"Process City {__version__} is running.")
+    print(f"  -> Open {url} in your browser to see the city.")
     print(f"  sampling every {collector.interval}s"
-          f"{', signals ENABLED' if args.allow_signals else ''} - Ctrl+C to quit")
+          f"{', signals ENABLED' if args.allow_signals else ''} - this terminal stays quiet; "
+          "Ctrl+C to quit")
 
     if not args.no_browser:
-        threading.Timer(0.6, lambda: webbrowser.open(url)).start()
+        threading.Timer(0.6, lambda: open_browser(url)).start()
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
