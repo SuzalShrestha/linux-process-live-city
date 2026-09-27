@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Process City</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23070b1c'/%3E%3Crect x='5' y='14' width='6' height='14' fill='none' stroke='%235b8cff' stroke-width='1.6'/%3E%3Crect x='13' y='5' width='6' height='23' fill='none' stroke='%23ff9a3c' stroke-width='1.6'/%3E%3Crect x='21' y='10' width='6' height='18' fill='none' stroke='%235b8cff' stroke-width='1.6'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three/build/three.module.js",
+        "three/addons/": "./vendor/three/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="stage"></div>
+
+  <header id="topbar">
+    <div class="brand">
+      <div class="logo"><i></i><i></i><i></i></div>
+      <div>
+        <h1>PROCESS<b>CITY</b></h1>
+        <small id="host">connecting…</small>
+      </div>
+      <span id="live" class="live"><i></i> LIVE</span>
+    </div>
+
+    <div class="search">
+      <input id="search" type="text" placeholder="Search: name, pid, user:root, cpu>5, mem>200M" autocomplete="off" spellcheck="false">
+      <kbd>/</kbd>
+      <div id="results" hidden></div>
+    </div>
+
+    <div class="controls">
+      <label><span>District</span><select id="groupBy"></select></label>
+      <label><span>Height</span><select id="height"></select></label>
+      <label><span>Glow</span><select id="color"></select></label>
+      <div class="menu-wrap">
+        <button id="viewBtn" title="View options">View ▾</button>
+        <div id="viewMenu" class="panel menu" hidden>
+          <label><input type="checkbox" id="optKernel"> Kernel threads</label>
+          <label><input type="checkbox" id="optLinks"> Parent → child links</label>
+          <label><input type="checkbox" id="optLabels"> District labels</label>
+          <label><input type="checkbox" id="optRotate"> Auto-rotate</label>
+        </div>
+      </div>
+      <button id="pauseBtn" title="Pause updates (Space)">❚❚</button>
+      <button id="resetBtn" title="Reset camera (R)">⌂</button>
+      <button id="helpBtn" title="Help (?)">?</button>
+    </div>
+  </header>
+
+  <aside id="hud" class="panel">
+    <section>
+      <div class="hud-row"><span class="k">CPU</span><b id="cpuTotal">—</b><small id="stCores"></small></div>
+      <canvas id="cpuSpark"></canvas>
+      <div id="cores"></div>
+    </section>
+    <section>
+      <div class="hud-row"><span class="k">Memory</span><small id="memText">—</small></div>
+      <div class="meter" id="memBar"></div>
+      <div class="hud-row"><span class="k">Swap</span><small id="swapText">—</small></div>
+      <div class="meter blue" id="swapBar"></div>
+    </section>
+    <dl>
+      <dt>Load</dt><dd id="stLoad">—</dd>
+      <dt>Procs</dt><dd id="stProcs">—</dd>
+      <dt>Net</dt><dd id="stNet">—</dd>
+      <dt>Disk</dt><dd id="stDisk">—</dd>
+      <dt>Uptime</dt><dd id="stUptime">—</dd>
+    </dl>
+    <div id="rootHint" class="hint" hidden>Running without root: other users' processes show as grey “restricted” towers with limited details.</div>
+  </aside>
+
+  <aside id="top" class="panel">
+    <div class="top-head">
+      <span>Busiest</span>
+      <div id="topTabs"><button data-top="cpu">CPU</button><button data-top="mem">MEM</button></div>
+    </div>
+    <ol id="topList"></ol>
+  </aside>
+
+  <div id="legend" class="panel"></div>
+  <div id="tooltip" hidden></div>
+  <aside id="inspector" class="panel" hidden></aside>
+  <div id="toast"></div>
+
+  <div id="help" hidden>
+    <div class="panel help-card">
+      <button class="icon" data-close title="Close">✕</button>
+      <h2>Reading the city</h2>
+      <ul>
+        <li><b>Each tower is a process.</b> Height = the Height metric (memory by default, log scale); width = thread count.</li>
+        <li><b>Glow</b> goes from cool blue glass to hot orange with the Glow metric (CPU by default). Busy towers light more windows and a scanline climbs them faster.</li>
+        <li><b>Districts</b> group processes by app tree, user, name or state. Roof beacons pulse with disk IO.</li>
+        <li>Green flicker = zombie, violet = stopped, grey = restricted (owned by another user; run with <code>sudo</code> for full detail).</li>
+        <li>New processes rise out of the ground with a flash; exited ones sink away.</li>
+      </ul>
+      <h2>Controls</h2>
+      <ul class="keys">
+        <li><kbd>drag</kbd> orbit · <kbd>right-drag</kbd> pan · <kbd>scroll</kbd> zoom</li>
+        <li><kbd>click</kbd> inspect a tower · <kbd>double-click</kbd> zoom to it</li>
+        <li><kbd>/</kbd> search · <kbd>F</kbd> focus selection · <kbd>P</kbd> go to parent</li>
+        <li><kbd>R</kbd> reset camera · <kbd>Space</kbd> pause · <kbd>Esc</kbd> close</li>
+      </ul>
+      <h2>Search syntax</h2>
+      <ul class="keys">
+        <li><code>chrome</code> — name, command line, user or pid contains</li>
+        <li><code>user:root</code> <code>name:ssh</code> <code>cmd:--port</code> <code>status:running</code> <code>ppid:1</code></li>
+        <li><code>cpu&gt;5</code> <code>mem&gt;500M</code> <code>threads&gt;=20</code> <code>fds&gt;100</code> — terms combine with AND</li>
+      </ul>
+    </div>
+  </div>
+
+  <div id="boot">
+    <div class="boot-logo"><i></i><i></i><i></i></div>
+    <div id="bootMsg">Surveying the city…</div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
